@@ -6,9 +6,6 @@ const Projects = () => {
   const [projects, setProjects] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState(null);
-  const [editProjectName, setEditProjectName] = useState('');
-  const [editTaskName, setEditTaskName] = useState('');
-  const [editTaskStatus, setEditTaskStatus] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -23,7 +20,9 @@ const Projects = () => {
       headers: { 'Authorization': `Bearer ${token}` }
     })
     .then(response => response.json())
-    .then(data => setProjects(data))
+    .then(data => {
+      setProjects(data);
+    })
     .catch(err => console.error(err));
   }, [navigate]);
 
@@ -44,6 +43,45 @@ const Projects = () => {
     .catch(err => console.error(err));
   };
 
+  const addProject = () => {
+    const projectName = prompt("Enter the name of the new project:");
+    if (projectName) {
+      fetch('https://projectbackend-s6ak.onrender.com/projects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ name: projectName })
+      })
+      .then(response => response.json())
+      .then(newProject => {
+        setProjects([...projects, newProject]);
+      })
+      .catch(err => console.error(err));
+    }
+  };
+
+  const addTask = (projectId) => {
+    const taskName = prompt("Enter the name of the new task:");
+    const taskStatus = prompt("Enter the status of the task (e.g., To Do, In Progress, Done):");
+    if (taskName && taskStatus) {
+      fetch(`https://projectbackend-s6ak.onrender.com/projects/${projectId}/tasks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ name: taskName, status: taskStatus })
+      })
+      .then(response => response.json())
+      .then(newTask => {
+        setTasks([...tasks, newTask]);
+      })
+      .catch(err => console.error(err));
+    }
+  };
+
   const deleteProject = (projectId) => {
     fetch(`https://projectbackend-s6ak.onrender.com/projects/${projectId}`, {
       method: 'DELETE',
@@ -60,21 +98,23 @@ const Projects = () => {
   };
 
   const updateProject = (projectId) => {
-    fetch(`https://projectbackend-s6ak.onrender.com/projects/${projectId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: JSON.stringify({ name: editProjectName })
-    })
-    .then(() => {
-      setProjects(projects.map(project => 
-        project._id === projectId ? { ...project, name: editProjectName } : project
-      ));
-      setEditProjectName('');
-    })
-    .catch(err => console.error(err));
+    const projectName = prompt("Enter the new name of the project:");
+    if (projectName) {
+      fetch(`https://projectbackend-s6ak.onrender.com/projects/${projectId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ name: projectName })
+      })
+      .then(() => {
+        setProjects(projects.map(project => 
+          project._id === projectId ? { ...project, name: projectName } : project
+        ));
+      })
+      .catch(err => console.error(err));
+    }
   };
 
   const deleteTask = (taskId) => {
@@ -89,38 +129,39 @@ const Projects = () => {
   };
 
   const updateTask = (taskId) => {
-    fetch(`https://projectbackend-s6ak.onrender.com/tasks/${taskId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: JSON.stringify({ name: editTaskName, status: editTaskStatus })
-    })
-    .then(() => {
-      setTasks(tasks.map(task => 
-        task._id === taskId ? { ...task, name: editTaskName, status: editTaskStatus } : task
-      ));
-      setEditTaskName('');
-      setEditTaskStatus('');
-    })
-    .catch(err => console.error(err));
+    const taskName = prompt("Enter the new name of the task:");
+    const taskStatus = prompt("Enter the new status of the task:");
+    if (taskName && taskStatus) {
+      fetch(`/api/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ name: taskName, status: taskStatus })
+      })
+      .then(() => {
+        setTasks(tasks.map(task => 
+          task._id === taskId ? { ...task, name: taskName, status: taskStatus } : task
+        ));
+      })
+      .catch(err => console.error(err));
+    }
   };
 
   return (
     <div className="container">
       <main>
         <h2>Projects</h2>
+        <button onClick={addProject} className="add-button">Add Project</button>
         <ul>
           {projects.map(project => (
             <li key={project._id}>
               <h3>{project.name}</h3>
               <button onClick={() => fetchTasks(project._id)}>View Tasks</button>
+              <button onClick={() => addTask(project._id)}>Add Task</button>
               <button onClick={() => deleteProject(project._id)}>Delete Project</button>
-              <button onClick={() => setEditProjectName(prompt("Enter new project name:", project.name))}>
-                Update Project
-              </button>
-              <button onClick={() => updateProject(project._id)}>Save Changes</button>
+              <button onClick={() => updateProject(project._id)}>Update Project</button>
             </li>
           ))}
         </ul>
@@ -133,13 +174,7 @@ const Projects = () => {
                 <li key={task._id}>
                   <p>{task.name} - Status: {task.status}</p>
                   <button onClick={() => deleteTask(task._id)}>Delete Task</button>
-                  <button onClick={() => {
-                    setEditTaskName(prompt("Enter new task name:", task.name));
-                    setEditTaskStatus(prompt("Enter new task status:", task.status));
-                  }}>
-                    Update Task
-                  </button>
-                  <button onClick={() => updateTask(task._id)}>Save Task Changes</button>
+                  <button onClick={() => updateTask(task._id)}>Update Task</button>
                 </li>
               ))}
             </ul>
